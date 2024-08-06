@@ -3,6 +3,8 @@
 # format: each bill starts with !HOUSE NUMBER, empty line, history, empty line x2, new bill + history
 # history is read from capitol track bill history
 
+# TODO - add if bill died, rip bill
+
 
 def main(): 
     house = "ERROR"
@@ -164,7 +166,7 @@ def expand_committee(committee, history):
         return "Health"
     elif committee == "higher ed.":
         return "Higher Education"
-    elif committee == "hum. s.":
+    elif committee == "hum. s." or committee == "human s.":
         return "Human Services"
     elif committee == "ins.":
         return "Insurance"
