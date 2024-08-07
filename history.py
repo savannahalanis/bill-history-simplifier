@@ -152,7 +152,7 @@ def get_vote_count(line):
     aye_end = line.find(".")
     aye_vote = line[:aye_end]
 
-    no_end = line.find(".)")
+    no_end = find_nth_index(line, ".", 2)
 
     no_vote = line[aye_end+7 : no_end]
 
@@ -259,6 +259,8 @@ def expand_committee(committee, history):
         return "Insurance"
     elif committee == "jud.":
         return "Judiciary"
+    elif committee == "l. & e.":
+        return "Labor and Employment"
     elif committee == "l., p.e. & r.":
         return "Labor, Public Employees, and Retirement"
     elif committee == "m. & v.a.":
