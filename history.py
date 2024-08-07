@@ -1,9 +1,11 @@
 # reads in from file og_history.txt
 # puts result into file new_history.txt
-# format: each bill starts with !HOUSE NUMBER, empty line, history, empty line x2, new bill + history
+# format: each bill starts with !HOUSE NUMBER\n, empty line, history, empty line x2, new bill + history
 # history is read from capitol track bill history
 
-# TODO - add if bill died, rip bill
+# possible TODO - add if bill died, rip bill
+
+import re
 
 
 def main(): 
@@ -12,6 +14,7 @@ def main():
     committee = "ERROR"
     output = open('./new_history.txt', 'w')
     history = []
+    multiple_committees = []
 
     og_history = open("og_history.txt", "r")
     lines = og_history.readlines()
@@ -31,6 +34,23 @@ def main():
         if "(Ayes " in line:
             date = get_date(line)
             count = get_vote_count(line)
+            """
+            if multiple_committees:
+                print("history[-1] was " + history[-1])
+                replacement = find_one_not_in_list(line, multiple_committees)
+                if replacement != "ERROR":
+                    prev_line = history[-1]
+                    c_tbd_index = prev_line.find("COMMITTEE_TBD")
+                    history[-1] = prev_line[:c_tbd_index] + replacement + prev_line[c_tbd_index+12:]
+                print("history[-1] is now " + history[-1])
+                multiple_committees = []
+            """
+            if multiple_committees:
+                replacement = find_one_not_in_list(line, multiple_committees)
+                if replacement != "ERROR":
+                    committee = replacement
+                else:
+                    print("Oops, it is ambiguous to determine a committee in " + history[0][:-1] + ". Please manually put in the committee in the spot that says 'COMMITTEE_TBD'. It has a vote count of " + count + "." + "\n")
             if "Read third time" in line:
                 history.append(date + " Passed by " + house_expansion(house) + " " + count)
                 house = flip_house(house)
@@ -42,12 +62,35 @@ def main():
             else:
                 history.append(date + " Passed by " + house + ". " + expand_committee(committee, history) + " Committee " + count)
         if ("re-referred" in line.lower()) or ("referred" in line.lower()):
-            committee = get_committee(line, committee)
+            committee, multiple_committees = get_committee(line, committee)
         if "Approved by the Governor" in line:
             date = get_date(line)
             history.append(date + " Signed into law by Governor")
         if index == line_amount -1:
             print_history(history, output)
+
+def find_one_not_in_list(str, lst):
+    str = str.lower()
+    str = str[str.index("refer"):]
+    num = len(lst)
+
+    # to handle that "ed." is in "higher ed."
+    if "higher ed." in lst:
+        str = str.replace("higher ed.", "higher ED.")
+    str = re.sub(r'[a-z]+ed', "", str)
+
+    for item in lst:
+        if item == "higher ed.":
+            item = "higher ED."
+        if item in str:
+            num = num - 1
+
+    if num == 1:
+        for item in lst:
+            if not (item in str):
+                return item
+    
+    return "ERROR"
 
 def print_history(history, output):
     bill_line = "ERROR"
@@ -132,17 +175,61 @@ def flip_house(curr_house):
 
 def get_committee(line, curr_committee):
     if "suspense file" in line:
-        return curr_committee
-
+        return curr_committee, []
+    
+    # get committee(s)
     line = line.lower()
     keyword = "re-referred" if ("re-referred" in line) else "referred"
-    start = line.find(keyword) + len(keyword) + 12
-    # for "keyword to Com. on "
+    start = line.find(keyword) + len(keyword) + 12 # for "keyword to Com. on "
     line = line[start:]
     committee = line[:line.find("(")]
     if "pursuant" in committee:
         committee = committee[:committee.find(" pursuant")]
-    return committee
+
+    # if multiple committees, put into multiple_committees list
+    if ("," in committee) or ("and" in committee):
+
+        if committee == "l., p.e. & r.": # this is one committee, not multiple
+            return committee, []
+
+        committee = committee[1:] # chop off the first char bc "keyword to Coms. on " means extra character
+
+        mult_committees = []
+        start = 0
+        end = 0
+        comma_count = committee.count(",")
+
+        for i in range(comma_count):
+            end = find_nth_index(committee, ",", i+1)
+            item = committee[start:end]
+            if expand_committee(item, []) != "ERROR":
+                mult_committees.append(item)
+                start = end + 2
+
+        if "and" in committee:
+            and_index = committee.index("and")
+            item1 = committee[start:and_index-1]
+            item2 = committee[and_index+4:]
+
+            if expand_committee(item1, []) != "ERROR":
+                mult_committees.append(item1)
+
+            if expand_committee(item2, []) != "ERROR":
+                mult_committees.append(item2)
+        
+        return "COMMITTEE_TBD", mult_committees
+
+    # if one committee
+    return committee, []
+
+def find_nth_index(str, target, n):
+    count = 0
+    for index, c in enumerate(str):
+        if c == target:
+            count += 1
+            if count == n:
+                return index
+    return -1
 
 def expand_committee(committee, history):
     # ordered alphabetically according to the expanded name
@@ -158,7 +245,7 @@ def expand_committee(committee, history):
         return "Elections and Constitutional Amendments"
     elif committee == "e.s. & t.m.":
         return "Environmental Safety and Toxic Materials"
-    elif committee == "e.q":
+    elif committee == "e.q.":
         return "Environmental Quality"
     elif committee == "g.o.":
         return "Governmental Organizations"
@@ -185,9 +272,15 @@ def expand_committee(committee, history):
     elif committee == "rev. & tax.":
         return "Revenue and Tax"
     
-    print("Oops, this script does not have an expansion for " + committee + " committee on " + history[0][:-1])
-    print("Either you need to update the committee expansions or manually fix the spot in " + history[0][:-1] + "'s history that says 'ERROR'\n")
+    elif committee == "COMMITTEE_TBD":
+        return committee
+    
+    if history:
+        print("Oops, this script does not have an expansion for " + committee + " committee on " + history[0][:-1])
+        print("Either you need to update the committee expansions or manually fix the spot in " + history[0][:-1] + "'s history that says 'ERROR'\n")
+
     return "ERROR"
 
 if __name__=="__main__":
     main()
+
