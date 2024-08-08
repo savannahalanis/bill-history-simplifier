@@ -24,6 +24,9 @@ def main():
     print("---------------", file=output)
 
     for index, line in enumerate(lines):
+        status = "Passed by"
+        if "Failed" in line or "failed" in line:
+            status = "Failed in"
         if line[0] == "!":
             house = line[1]
             number = line[4:]
@@ -34,33 +37,22 @@ def main():
         if "(Ayes " in line:
             date = get_date(line)
             count = get_vote_count(line)
-            """
-            if multiple_committees:
-                print("history[-1] was " + history[-1])
-                replacement = find_one_not_in_list(line, multiple_committees)
-                if replacement != "ERROR":
-                    prev_line = history[-1]
-                    c_tbd_index = prev_line.find("COMMITTEE_TBD")
-                    history[-1] = prev_line[:c_tbd_index] + replacement + prev_line[c_tbd_index+12:]
-                print("history[-1] is now " + history[-1])
-                multiple_committees = []
-            """
             if multiple_committees:
                 replacement = find_one_not_in_list(line, multiple_committees)
                 if replacement != "ERROR":
                     committee = replacement
                 else:
-                    print("Oops, it is ambiguous to determine a committee in " + history[0][:-1] + ". Please manually put in the committee in the spot that says 'COMMITTEE_TBD'. It has a vote count of " + count + "." + "\n")
+                    print("Oops, it is ambiguous to determine a committee in " + history[0][:-1] + ". Please manually put in the committee in the spot that says 'COMMITTEE_TBD'. It has a date of " + date +" and vote count of " + count + "." + "\n")
             if "Read third time" in line:
-                history.append(date + " Passed by " + house_expansion(house) + " " + count)
+                history.append(date + " " + status + " " + house_expansion(house) + " " + count)
                 house = flip_house(house)
             elif "amendments concurred in" in line:
-                history.append(date + " Passed by " + house_expansion(house) + " " + count)
+                history.append(date + " " + status + " " + house_expansion(house) + " " + count)
                 house = flip_house(house)
             elif "be concurred in" in line:
                 1+1
             else:
-                history.append(date + " Passed by " + house + ". " + expand_committee(committee, history) + " Committee " + count)
+                history.append(date + " " + status + " " + house + ". " + expand_committee(committee, history) + " Committee " + count)
         if ("re-referred" in line.lower()) or ("referred" in line.lower()):
             committee, multiple_committees = get_committee(line, committee)
         if "Approved by the Governor" in line:
